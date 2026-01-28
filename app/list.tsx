@@ -16,13 +16,15 @@ import { deleteDoc, doc } from 'firebase/firestore';
 import { useAuth } from '@/src/hooks/useAuth';
 import { useMemos } from '@/src/hooks/useMemos';
 import { db } from '@/src/services/firebase';
+import { AdBanner } from '@/src/components/AdBanner';
 
-type GroupItem = {
-  key: string;
+// 各メモは独立したアイテムとして扱う（同じグループ名でも別々に表示）
+type MemoListItem = {
+  key: string;       // ドキュメントID
+  id: string;        // ドキュメントID
   groupName: string;
   color?: string;
-  texts: string[];
-  ids: string[];
+  text: string;
 };
 
 export default function ListScreen() {
@@ -32,47 +34,17 @@ export default function ListScreen() {
   const { memos } = useMemos({ userId });
   const insets = useSafeAreaInsets();
 
-  const keyFor = (groupName: string) => groupName || '__none__';
-
-  const groups: GroupItem[] = useMemo(() => {
-    const map = new Map<string, GroupItem>();
-    // すべてのメモをループして、同じグループ名のメモをまとめる
-    // 既存のメモも新しいメモもすべて保持される
-    // メモのIDをSetで管理して、重複を防ぐ
-    const processedIds = new Set<string>();
+  // 各メモを独立したアイテムとして表示（ドキュメントIDをキーとして使用）
+  const groups: MemoListItem[] = useMemo(() => {
+    console.log(`[ListScreen] Processing ${memos.length} memos`);
     
-    // デバッグ: メモの総数をログに出力
-    console.log(`[ListScreen] Processing ${memos.length} memos for grouping`);
-    
-    for (const m of memos) {
-      // 重複チェック：同じIDのメモが既に処理されている場合はスキップ
-      if (processedIds.has(m.id)) {
-        console.warn(`[ListScreen] Duplicate memo ID detected: ${m.id}`);
-        continue;
-      }
-      processedIds.add(m.id);
-      
-      const key = keyFor(m.groupName);
-      const displayName = m.groupName || ''; // グループ名が空の場合は空文字列
-      let g = map.get(key);
-      if (!g) {
-        g = { key, groupName: displayName, color: m.color, texts: [], ids: [] };
-        map.set(key, g);
-      }
-      // 既存のメモを保持したまま、新しいメモを追加（改行で区切る）
-      g.texts.push(m.text);
-      g.ids.push(m.id);
-      if (!g.color && m.color) g.color = m.color;
-    }
-    
-    // デバッグ: グループ化後のグループ数をログに出力
-    const groupsArray = Array.from(map.values());
-    console.log(`[ListScreen] Created ${groupsArray.length} groups`);
-    groupsArray.forEach((g) => {
-      console.log(`[ListScreen] Group "${g.groupName}": ${g.texts.length} memos, IDs: ${g.ids.join(', ')}`);
-    });
-    
-    return groupsArray;
+    return memos.map((m) => ({
+      key: m.id,        // ドキュメントIDをキーとして使用
+      id: m.id,
+      groupName: m.groupName || '',
+      color: m.color,
+      text: m.text,
+    }));
   }, [memos]);
 
   const [selectMode, setSelectMode] = useState(false);
@@ -92,24 +64,12 @@ export default function ListScreen() {
     });
   };
 
-  const handleRowPress = (group: GroupItem) => {
+  const handleRowPress = (item: MemoListItem) => {
     if (selectMode) {
-      toggleSelect(group.key);
-    } else if (group.ids.length > 0) {
-      // グループ内のメモをcreatedAtでソートして、最新のメモを開く
-      const groupMemos = memos.filter((m) => group.ids.includes(m.id));
-      const sortedGroupMemos = [...groupMemos].sort((a, b) => {
-        // createdAtでソート（新しい順）
-        // 注意: createdAtはFirestoreのTimestamp型なので、直接比較できない
-        // しかし、useMemosで既にorderBy('createdAt', 'desc')でソートされているので、
-        // memos配列の順序を保持する
-        return 0;
-      });
-      // グループ内の最新メモ（memos配列で最初に見つかったもの）を開く
-      const latestMemo = groupMemos[0] || memos.find((m) => group.ids.includes(m.id));
-      if (latestMemo) {
-        router.push(`/detail/${latestMemo.id}`);
-      }
+      toggleSelect(item.key);
+    } else {
+      // ドキュメントIDで直接詳細画面を開く
+      router.push(`/detail/${item.id}`);
     }
   };
 
@@ -127,7 +87,7 @@ export default function ListScreen() {
     if (selectedCount === 0) return;
     Alert.alert(
       '削除確認',
-      `${selectedCount} 件のグループを削除しますか？`,
+      `${selectedCount} 件のメモを削除しますか？`,
       [
         { text: 'キャンセル', style: 'cancel' },
         {
@@ -135,11 +95,9 @@ export default function ListScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const targets = memos.filter((m) =>
-                selectedKeys.has(keyFor(m.groupName))
-              );
+              // 選択されたドキュメントIDで直接削除
               await Promise.all(
-                targets.map((m) => deleteDoc(doc(db, 'memos', m.id)))
+                Array.from(selectedKeys).map((id) => deleteDoc(doc(db, 'memos', id)))
               );
               handleCancelSelect();
             } catch (e) {
@@ -151,10 +109,11 @@ export default function ListScreen() {
     );
   };
 
-  const confirmDeleteGroup = (group: GroupItem) => {
+  const confirmDeleteMemo = (item: MemoListItem) => {
+    const displayName = item.groupName || 'グループなし';
     Alert.alert(
       '削除確認',
-      `「${group.groupName}」グループ内のメモをすべて削除しますか？`,
+      `「${displayName}」のメモを削除しますか？`,
       [
         { text: 'キャンセル', style: 'cancel' },
         {
@@ -162,11 +121,9 @@ export default function ListScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await Promise.all(
-                group.ids.map((id) => deleteDoc(doc(db, 'memos', id)))
-              );
+              await deleteDoc(doc(db, 'memos', item.id));
             } catch (e) {
-              console.error('Failed to delete group memos', e);
+              console.error('Failed to delete memo', e);
             }
           },
         },
@@ -174,10 +131,10 @@ export default function ListScreen() {
     );
   };
 
-  const renderRightActions = (group: GroupItem) => (
+  const renderRightActions = (item: MemoListItem) => (
     <TouchableOpacity
       style={styles.swipeDelete}
-      onPress={() => confirmDeleteGroup(group)}
+      onPress={() => confirmDeleteMemo(item)}
     >
       <Text style={styles.swipeDeleteText}>削除</Text>
     </TouchableOpacity>
@@ -239,7 +196,7 @@ export default function ListScreen() {
           data={groups}
           keyExtractor={(item) => item.key}
           contentContainerStyle={
-            groups.length === 0 ? styles.emptyList : undefined
+            groups.length === 0 ? styles.emptyList : styles.listContent
           }
           renderItem={({ item }) => {
             const selected = selectedKeys.has(item.key);
@@ -263,7 +220,7 @@ export default function ListScreen() {
                     numberOfLines={2}
                     ellipsizeMode="tail"
                   >
-                    {item.texts.join('\n\n')}
+                    {item.text}
                   </Text>
                   {item.groupName ? (
                     <Text
@@ -313,13 +270,18 @@ export default function ListScreen() {
         />
 
         <TouchableOpacity
-          style={styles.fab}
+          style={[styles.fab, { bottom: 80 }]}
           onPress={() => router.push('/detail/new')}
         >
           <Text style={styles.fabIcon}>＋</Text>
         </TouchableOpacity>
       </View>
-      <SafeAreaView style={styles.bottomSafeArea} edges={['bottom']} />
+      
+      {/* 広告バナー */}
+      <AdBanner />
+      
+      {/* 下部セーフエリア */}
+      <View style={[styles.bottomSafeArea, { height: insets.bottom }]} />
     </View>
   );
 }
@@ -338,6 +300,9 @@ const styles = StyleSheet.create({
   },
   bottomSafeArea: {
     backgroundColor: '#f3f4f6',
+  },
+  listContent: {
+    paddingBottom: 100,
   },
   navBar: {
     height: 44,

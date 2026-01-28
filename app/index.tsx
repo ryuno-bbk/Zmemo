@@ -8,12 +8,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/src/hooks/useAuth';
 import { useMemos } from '@/src/hooks/useMemos';
 import { GroupSelectorModal } from '@/src/components/GroupSelectorModal';
+import { AdBanner } from '@/src/components/AdBanner';
 
 export default function InputScreen() {
   const router = useRouter();
@@ -42,9 +43,9 @@ export default function InputScreen() {
     setSelectorVisible(true);
   };
 
-  const handleSelectGroup = async (groupName: string) => {
+  const handleSelectGroup = async (groupName: string, isNewGroup: boolean) => {
     try {
-      await saveMemo(text, groupName);
+      await saveMemo(text, groupName, isNewGroup);
       setText('');
       setSelectorVisible(false);
       router.push('/list');
@@ -53,8 +54,13 @@ export default function InputScreen() {
     }
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <View style={styles.safeArea}>
+      {/* 上部セーフエリア */}
+      <View style={[styles.topSafeArea, { height: insets.top }]} />
+      
       <KeyboardAvoidingView
         style={styles.root}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -102,13 +108,25 @@ export default function InputScreen() {
           onSelectGroup={handleSelectGroup}
         />
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      
+      {/* 広告バナー */}
+      <AdBanner />
+      
+      {/* 下部セーフエリア */}
+      <View style={[styles.bottomSafeArea, { height: insets.bottom }]} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    backgroundColor: '#f3f4f6',
+  },
+  topSafeArea: {
+    backgroundColor: '#f3f4f6',
+  },
+  bottomSafeArea: {
     backgroundColor: '#f3f4f6',
   },
   root: {
@@ -119,7 +137,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
     paddingHorizontal: 16,
     paddingTop: 60,
-    paddingBottom: 24,
+    paddingBottom: 16,
     justifyContent: 'flex-start',
   },
   headerRow: {

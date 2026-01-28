@@ -1,15 +1,18 @@
-import React, { useRef, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  FlatList,
   Modal,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
+  Dimensions,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 type GroupInfo = {
   name: string;
@@ -20,7 +23,7 @@ type Props = {
   visible: boolean;
   groups: GroupInfo[];
   onClose: () => void;
-  onSelectGroup: (groupName: string) => void;
+  onSelectGroup: (groupName: string, isNewGroup: boolean) => void;
 };
 
 export function GroupSelectorModal({
@@ -31,44 +34,49 @@ export function GroupSelectorModal({
 }: Props) {
   const [newName, setNewName] = useState('');
   const [selectedName, setSelectedName] = useState<string | null>(null);
-  const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
+
+  // デバッグ: グループ数をログに出力
+  useEffect(() => {
+    if (visible) {
+      console.log(`[GroupSelectorModal] Showing ${groups.length} groups:`, groups.map(g => g.name));
+    }
+  }, [visible, groups]);
 
   const handleConfirm = () => {
     const trimmedNew = newName.trim();
-    // 新規入力があればそれを優先、なければ選択中の名前、どちらもなければ「グループなし」
-    const nameToUse = trimmedNew || selectedName || '';
-    onSelectGroup(nameToUse);
+    
+    if (trimmedNew) {
+      // 新規グループ名が入力された場合 → 新規作成
+      console.log(`[GroupSelectorModal] Creating new group: "${trimmedNew}"`);
+      onSelectGroup(trimmedNew, true);
+    } else if (selectedName) {
+      // 既存グループを選択した場合 → 追記
+      console.log(`[GroupSelectorModal] Appending to existing group: "${selectedName}"`);
+      onSelectGroup(selectedName, false);
+    } else {
+      // どちらも選択されていない場合 → グループなしで新規作成
+      console.log(`[GroupSelectorModal] Creating memo without group`);
+      onSelectGroup('', true);
+    }
+    
     setNewName('');
     setSelectedName(null);
-    // すべてのスワイプを閉じる
-    swipeableRefs.current.forEach((ref) => ref?.close());
   };
 
   const handleGroupSelect = (name: string) => {
-    setSelectedName(name);
-    // 他のスワイプを閉じる
-    swipeableRefs.current.forEach((ref, key) => {
-      if (key !== name) ref?.close();
-    });
+    // 同じグループをタップしたら選択解除、違うグループなら選択
+    if (selectedName === name) {
+      setSelectedName(null);
+    } else {
+      setSelectedName(name);
+    }
   };
 
-  const renderRightActions = (group: GroupInfo) => (
-    <TouchableOpacity
-      style={[
-        styles.swipeAction,
-        { backgroundColor: group.color || '#9ca3af' },
-      ]}
-      onPress={() => handleGroupSelect(group.name)}
-    >
-      <Text style={styles.swipeActionText}>選択</Text>
-    </TouchableOpacity>
-  );
-
-  const renderGroupItem = ({ item }: { item: GroupInfo }) => {
+  const renderGroupItem = ({ item, index }: { item: GroupInfo; index: number }) => {
     const isSelected = selectedName === item.name;
     const groupColor = item.color || '#9ca3af';
 
-    const content = (
+    return (
       <Pressable
         style={({ pressed }) => [
           styles.groupRow,
@@ -90,82 +98,91 @@ export function GroupSelectorModal({
         </View>
       </Pressable>
     );
-
-    return (
-      <Swipeable
-        ref={(ref) => {
-          if (ref) {
-            swipeableRefs.current.set(item.name, ref);
-          } else {
-            swipeableRefs.current.delete(item.name);
-          }
-        }}
-        renderRightActions={() => renderRightActions(item)}
-        overshootRight={false}
-        onSwipeableWillOpen={() => handleGroupSelect(item.name)}
-      >
-        {content}
-      </Swipeable>
-    );
   };
+
+  // グループリストの高さを計算（グループ数に応じて、最大で画面の40%）
+  const itemHeight = 56; // 各グループアイテムの高さ
+  const calculatedHeight = Math.min(groups.length * itemHeight + 16, SCREEN_HEIGHT * 0.4);
+  const listHeight = Math.max(calculatedHeight, 80);
 
   return (
     <Modal visible={visible} animationType="fade" transparent>
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
-          <Text style={styles.title}>グループを選択してください</Text>
+      <KeyboardAvoidingView 
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <Pressable style={styles.backdrop} onPress={onClose}>
+          <View style={styles.sheet}>
+            <Text style={styles.title}>グループを選択してください</Text>
+            <Text style={styles.subtitle}>
+              タップして選択（{groups.length}件のグループ）
+            </Text>
 
-          <View style={styles.groupListContainer}>
-            <FlatList
-              data={groups}
-              keyExtractor={(item) => item.name}
-              renderItem={renderGroupItem}
-              showsVerticalScrollIndicator={true}
-              contentContainerStyle={styles.groupListContent}
-            />
-          </View>
+            {groups.length > 0 ? (
+              <View style={[styles.groupListContainer, { height: listHeight }]}>
+                <FlatList
+                  data={groups}
+                  keyExtractor={(item, index) => `group-${item.name}-${index}`}
+                  renderItem={renderGroupItem}
+                  showsVerticalScrollIndicator={true}
+                  contentContainerStyle={styles.groupListContent}
+                  extraData={selectedName}
+                  initialNumToRender={10}
+                  maxToRenderPerBatch={10}
+                />
+              </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>保存されているグループはありません</Text>
+              </View>
+            )}
 
-          <View style={styles.newGroupSection}>
-            <Text style={styles.label}>新しいグループを作成</Text>
-            <TextInput
-              value={newName}
-              onChangeText={setNewName}
-              placeholder="グループ名（空欄も可）"
-              style={styles.input}
-              returnKeyType="done"
-              onSubmitEditing={handleConfirm}
-            />
-          </View>
+            <View style={styles.newGroupSection}>
+              <Text style={styles.label}>新しいグループを作成</Text>
+              <TextInput
+                value={newName}
+                onChangeText={setNewName}
+                placeholder="グループ名（空欄も可）"
+                placeholderTextColor="#9ca3af"
+                style={styles.input}
+                returnKeyType="done"
+                onSubmitEditing={handleConfirm}
+              />
+            </View>
 
-          <View style={styles.actionsRow}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionButton,
-                styles.cancelButton,
-                pressed && styles.actionPressed,
-              ]}
-              onPress={onClose}
-            >
-              <Text style={styles.cancelText}>キャンセル</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionButton,
-                styles.primaryButton,
-                pressed && styles.actionPressed,
-              ]}
-              onPress={handleConfirm}
-            >
-              <Text style={styles.primaryText}>保存</Text>
-            </Pressable>
+            <View style={styles.actionsRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  styles.cancelButton,
+                  pressed && styles.actionPressed,
+                ]}
+                onPress={onClose}
+              >
+                <Text style={styles.cancelText}>キャンセル</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  styles.primaryButton,
+                  pressed && styles.actionPressed,
+                ]}
+                onPress={handleConfirm}
+              >
+                <Text style={styles.primaryText}>保存</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
-      </View>
+        </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoid: {
+    flex: 1,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -179,35 +196,53 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     paddingHorizontal: 20,
     paddingVertical: 20,
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 4,
     color: '#111827',
   },
-  groupListContainer: {
-    maxHeight: 280,
+  subtitle: {
+    fontSize: 13,
+    textAlign: 'center',
     marginBottom: 16,
+    color: '#6b7280',
+  },
+  groupListContainer: {
+    marginBottom: 16,
+    borderRadius: 12,
+    backgroundColor: '#f3f4f6',
+    overflow: 'hidden',
   },
   groupListContent: {
-    paddingBottom: 4,
+    padding: 8,
+    paddingBottom: 8,
+  },
+  emptyContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#9ca3af',
   },
   groupRow: {
     flexDirection: 'row',
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 0,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
     marginBottom: 8,
     borderWidth: 2,
     borderColor: 'transparent',
     overflow: 'hidden',
   },
   groupRowPressed: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#f9fafb',
   },
   groupRowSelected: {
     backgroundColor: '#eff6ff',
@@ -240,18 +275,6 @@ const styles = StyleSheet.create({
   checkmarkText: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: '700',
-  },
-  swipeAction: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 80,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  swipeActionText: {
-    color: '#ffffff',
-    fontSize: 15,
     fontWeight: '700',
   },
   newGroupSection: {

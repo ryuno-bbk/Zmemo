@@ -10,12 +10,13 @@ import {
   View,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 
 import { useAuth } from '@/src/hooks/useAuth';
 import { db } from '@/src/services/firebase';
+import { AdBanner } from '@/src/components/AdBanner';
 
 type MemoDoc = {
   text: string;
@@ -152,18 +153,20 @@ export default function DetailScreen() {
     });
   }, [navigation, handleSave, canSave, router]);
 
+  const insets = useSafeAreaInsets();
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <View style={styles.safeArea}>
         <View style={styles.loadingWrapper}>
           <Text style={styles.loadingText}>読み込み中...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <View style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.root}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -211,13 +214,22 @@ export default function DetailScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      
+      {/* 広告バナー */}
+      <AdBanner />
+      
+      {/* 下部セーフエリア */}
+      <View style={[styles.bottomSafeArea, { height: insets.bottom }]} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    backgroundColor: '#f3f4f6',
+  },
+  bottomSafeArea: {
     backgroundColor: '#f3f4f6',
   },
   root: {
@@ -229,7 +241,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingBottom: 32,
+    paddingBottom: 80,
   },
   loadingWrapper: {
     flex: 1,
@@ -241,8 +253,8 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   textInput: {
-    flex: 1,
-    minHeight: 220,
+    height: 220,
+    maxHeight: 220,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
