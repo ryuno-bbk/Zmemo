@@ -1,17 +1,23 @@
 {
   "expo": {
-    "name": "ZMEMO",
-    "slug": "ZMEMO",
+    "name": "入力ファーストメモ - 画面開いたらすぐに入力で爆速メモ",
+    "slug": "inputfirstmemo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "zmemo",
+    "icon": "./assets/icon.png",
+    "scheme": "inputfirstmemo",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ryunosuke.inputfirstmemo",
+      "infoPlist": {
+        "CFBundleDisplayName": "入力ファースト",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.ryunosuke.inputfirstmemo",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -42,14 +48,20 @@
       [
         "react-native-google-mobile-ads",
         {
-          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
-          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+          "androidAppId": "ca-app-pub-5685067595656519~8386092482",
+          "iosAppId": "ca-app-pub-5685067595656519~8386092482"
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "55929d5d-1323-4ade-875a-86ac5d32610a"
+      }
     }
   }
 }

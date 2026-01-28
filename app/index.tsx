@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -7,8 +7,9 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Keyboard,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/src/hooks/useAuth';
@@ -32,6 +33,16 @@ export default function InputScreen() {
 
   const [text, setText] = useState('');
   const [selectorVisible, setSelectorVisible] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const isSaveDisabled = useMemo(
     () => !userId || text.trim().length === 0 || saving,
@@ -64,7 +75,7 @@ export default function InputScreen() {
       <KeyboardAvoidingView
         style={styles.root}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 + insets.bottom : 0}
       >
         <View style={styles.container}>
           <View style={styles.headerRow}>
@@ -78,7 +89,10 @@ export default function InputScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.inputBlock}>
+          <View style={[
+            styles.inputBlock,
+            keyboardVisible && styles.inputBlockSmall,
+          ]}>
             <TextInput
               style={styles.input}
               placeholder="メモを入力してください…"
@@ -134,28 +148,29 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
     paddingHorizontal: 16,
-    paddingTop: 60,
+    paddingTop: 16,
     paddingBottom: 16,
-    justifyContent: 'flex-start',
-  },
-  headerRow: {
-    position: 'absolute',
-    top: 12,
-    left: 0,
-    right: 0,
     alignItems: 'center',
   },
+  headerRow: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
   listButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
+    paddingHorizontal: 36,
+    paddingVertical: 14,
     borderRadius: 999,
     backgroundColor: '#2563eb',
+    shadowColor: '#2563eb',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 4,
   },
   listButtonText: {
     color: '#ffffff',
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: '700',
   },
   inputBlock: {
@@ -163,10 +178,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    minHeight: 280,
-    marginBottom: 20,
     flex: 1,
-    maxHeight: '70%',
+    width: '100%',
+    marginBottom: 24,
+    maxHeight: 350,
+  },
+  inputBlockSmall: {
+    maxHeight: 220,
+    flex: 0,
+    height: 220,
   },
   input: {
     fontSize: 16,
@@ -187,8 +207,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 12,
     elevation: 6,
-    marginTop: 'auto',
-    marginBottom: 8,
   },
   saveButtonDisabled: {
     backgroundColor: '#9ca3af',

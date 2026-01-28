@@ -1,15 +1,12 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Platform } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Constants from 'expo-constants';
 
 // Expo Go かどうかを判定
 const isExpoGo = Constants.appOwnership === 'expo';
 
-// テスト用バナーID
-const BANNER_AD_UNIT_ID = Platform.select({
-  ios: 'ca-app-pub-3940256099942544/2934735716',
-  android: 'ca-app-pub-3940256099942544/6300978111',
-}) ?? 'ca-app-pub-3940256099942544/6300978111';
+// 本番用バナーユニットID
+const BANNER_AD_UNIT_ID = 'ca-app-pub-5685067595656519/2132331865';
 
 // 動的インポート用の型
 let BannerAd: any = null;
