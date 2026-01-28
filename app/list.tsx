@@ -36,7 +36,22 @@ export default function ListScreen() {
 
   const groups: GroupItem[] = useMemo(() => {
     const map = new Map<string, GroupItem>();
+    // すべてのメモをループして、同じグループ名のメモをまとめる
+    // 既存のメモも新しいメモもすべて保持される
+    // メモのIDをSetで管理して、重複を防ぐ
+    const processedIds = new Set<string>();
+    
+    // デバッグ: メモの総数をログに出力
+    console.log(`[ListScreen] Processing ${memos.length} memos for grouping`);
+    
     for (const m of memos) {
+      // 重複チェック：同じIDのメモが既に処理されている場合はスキップ
+      if (processedIds.has(m.id)) {
+        console.warn(`[ListScreen] Duplicate memo ID detected: ${m.id}`);
+        continue;
+      }
+      processedIds.add(m.id);
+      
       const key = keyFor(m.groupName);
       const displayName = m.groupName || ''; // グループ名が空の場合は空文字列
       let g = map.get(key);
@@ -44,11 +59,20 @@ export default function ListScreen() {
         g = { key, groupName: displayName, color: m.color, texts: [], ids: [] };
         map.set(key, g);
       }
+      // 既存のメモを保持したまま、新しいメモを追加（改行で区切る）
       g.texts.push(m.text);
       g.ids.push(m.id);
       if (!g.color && m.color) g.color = m.color;
     }
-    return Array.from(map.values());
+    
+    // デバッグ: グループ化後のグループ数をログに出力
+    const groupsArray = Array.from(map.values());
+    console.log(`[ListScreen] Created ${groupsArray.length} groups`);
+    groupsArray.forEach((g) => {
+      console.log(`[ListScreen] Group "${g.groupName}": ${g.texts.length} memos, IDs: ${g.ids.join(', ')}`);
+    });
+    
+    return groupsArray;
   }, [memos]);
 
   const [selectMode, setSelectMode] = useState(false);
@@ -72,8 +96,20 @@ export default function ListScreen() {
     if (selectMode) {
       toggleSelect(group.key);
     } else if (group.ids.length > 0) {
-      // ひとまずグループ内の最新メモを開く
-      router.push(`/detail/${group.ids[0]}`);
+      // グループ内のメモをcreatedAtでソートして、最新のメモを開く
+      const groupMemos = memos.filter((m) => group.ids.includes(m.id));
+      const sortedGroupMemos = [...groupMemos].sort((a, b) => {
+        // createdAtでソート（新しい順）
+        // 注意: createdAtはFirestoreのTimestamp型なので、直接比較できない
+        // しかし、useMemosで既にorderBy('createdAt', 'desc')でソートされているので、
+        // memos配列の順序を保持する
+        return 0;
+      });
+      // グループ内の最新メモ（memos配列で最初に見つかったもの）を開く
+      const latestMemo = groupMemos[0] || memos.find((m) => group.ids.includes(m.id));
+      if (latestMemo) {
+        router.push(`/detail/${latestMemo.id}`);
+      }
     }
   };
 
@@ -154,16 +190,16 @@ export default function ListScreen() {
           {selectMode ? (
             <TouchableOpacity 
               onPress={handleCancelSelect} 
-              hitSlop={8}
-              style={{ paddingHorizontal: 8 }}
+              hitSlop={{ top: 16, bottom: 16, left: 12, right: 12 }}
+              style={{ paddingHorizontal: 12, paddingVertical: 8 }}
             >
               <Text style={[styles.navLink, styles.navBold]}>キャンセル</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity 
               onPress={() => router.back()} 
-              hitSlop={8}
-              style={{ paddingHorizontal: 8 }}
+              hitSlop={{ top: 16, bottom: 16, left: 12, right: 12 }}
+              style={{ paddingHorizontal: 12, paddingVertical: 8 }}
             >
               <Text style={[styles.navLink, styles.navBold]}>戻る</Text>
             </TouchableOpacity>
@@ -173,8 +209,8 @@ export default function ListScreen() {
             <TouchableOpacity
               onPress={handleDeleteSelected}
               disabled={selectedCount === 0}
-              hitSlop={8}
-              style={{ paddingHorizontal: 8, opacity: selectedCount === 0 ? 0.4 : 1 }}
+              hitSlop={{ top: 16, bottom: 16, left: 12, right: 12 }}
+              style={{ paddingHorizontal: 12, paddingVertical: 8, opacity: selectedCount === 0 ? 0.4 : 1 }}
             >
               <Text
                 style={[
@@ -189,8 +225,8 @@ export default function ListScreen() {
           ) : (
             <TouchableOpacity
               onPress={handleEnterSelectMode}
-              hitSlop={8}
-              style={{ paddingHorizontal: 8 }}
+              hitSlop={{ top: 16, bottom: 16, left: 12, right: 12 }}
+              style={{ paddingHorizontal: 12, paddingVertical: 8 }}
             >
               <Text style={[styles.navLink, styles.navBold]}>選択</Text>
             </TouchableOpacity>

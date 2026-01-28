@@ -1,7 +1,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
@@ -22,7 +22,10 @@ export default function RootLayout() {
           backgroundColor: colorScheme === 'dark' ? '#000' : '#fff',
         }}
       >
-        <ActivityIndicator />
+        <ActivityIndicator size="large" color="#2563eb" />
+        <Text style={{ marginTop: 12, fontSize: 14, color: '#6b7280' }}>
+          読み込み中...
+        </Text>
       </View>
     );
   }

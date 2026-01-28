@@ -90,22 +90,40 @@ export default function DetailScreen() {
           createdAt: serverTimestamp(),
           color: color ?? '#9ca3af',
         });
+        console.log(`[DetailScreen] Created new memo with group: "${groupName.trim()}"`);
       } else {
         const ref = doc(db, 'memos', id);
         const snap = await getDoc(ref);
-        if (!snap.exists()) return;
+        if (!snap.exists()) {
+          console.error(`[DetailScreen] Memo ${id} does not exist`);
+          return;
+        }
         const data = snap.data() as Partial<MemoDoc>;
-        if (data.userId !== userId) return;
+        if (data.userId !== userId) {
+          console.error(`[DetailScreen] User ${userId} does not have permission to edit memo ${id}`);
+          return;
+        }
+
+        const oldGroupName = data.groupName || '';
+        const newGroupName = groupName.trim();
+        
+        console.log(`[DetailScreen] Updating memo ${id}:`);
+        console.log(`  Old group: "${oldGroupName}"`);
+        console.log(`  New group: "${newGroupName}"`);
+        console.log(`  Old text: "${data.text}"`);
+        console.log(`  New text: "${text.trim()}"`);
 
         await updateDoc(ref, {
           text: text.trim(),
-          groupName: groupName.trim(),
+          groupName: newGroupName,
           color: color ?? '#9ca3af',
         });
+        
+        console.log(`[DetailScreen] Successfully updated memo ${id}`);
       }
       router.back();
     } catch (e) {
-      console.error('Failed to update memo', e);
+      console.error('[DetailScreen] Failed to update memo', e);
       Alert.alert('エラー', 'メモの保存に失敗しました。');
     }
   }, [userId, canSave, isNew, id, text, groupName, color, router]);
@@ -115,8 +133,8 @@ export default function DetailScreen() {
       headerLeft: () => (
         <TouchableOpacity
           onPress={() => router.back()}
-          hitSlop={8}
-          style={{ paddingHorizontal: 8 }}
+          hitSlop={{ top: 16, bottom: 16, left: 12, right: 12 }}
+          style={{ paddingHorizontal: 12, paddingVertical: 8 }}
         >
           <Text style={styles.headerButtonText}>戻る</Text>
         </TouchableOpacity>
@@ -125,8 +143,8 @@ export default function DetailScreen() {
         <TouchableOpacity
           onPress={handleSave}
           disabled={!canSave}
-          hitSlop={8}
-          style={{ opacity: canSave ? 1 : 0.4, paddingHorizontal: 8 }}
+          hitSlop={{ top: 16, bottom: 16, left: 12, right: 12 }}
+          style={{ opacity: canSave ? 1 : 0.4, paddingHorizontal: 12, paddingVertical: 8 }}
         >
           <Text style={styles.headerButtonText}>保存</Text>
         </TouchableOpacity>

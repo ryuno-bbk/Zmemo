@@ -19,7 +19,7 @@ export default function InputScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const userId = user?.uid;
-  const { memos, groupNames, groupColors, saveMemo } = useMemos({ userId });
+  const { memos, groupNames, groupColors, saveMemo, saving } = useMemos({ userId });
 
   // グループ情報を色付きで準備
   const groupsWithColors = React.useMemo(() => {
@@ -33,8 +33,8 @@ export default function InputScreen() {
   const [selectorVisible, setSelectorVisible] = useState(false);
 
   const isSaveDisabled = useMemo(
-    () => !userId || text.trim().length === 0,
-    [userId, text]
+    () => !userId || text.trim().length === 0 || saving,
+    [userId, text, saving]
   );
 
   const handleOpenSelector = () => {
@@ -67,7 +67,7 @@ export default function InputScreen() {
               onPress={() => router.push('/list')}
             >
               <Text style={styles.listButtonText}>
-                メモリスト{memos.length > 0 ? ` (${memos.length})` : ''}
+                メモリスト
               </Text>
             </TouchableOpacity>
           </View>
